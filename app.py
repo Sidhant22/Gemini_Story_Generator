@@ -48,7 +48,8 @@ if generate_button:
                 st.subheader("Story Narration:")
                 audio_file = narrate_story(story_text)
                 if audio_file:
-                    st.audio(audio_file, format="audio/mp3")
+                    # st.audio(audio_file, format="audio/mp3")
+                    st.audio(audio_file, format="audio/wav")
                 else:
                     st.error("Failed to generate narration. Please try again.")
 

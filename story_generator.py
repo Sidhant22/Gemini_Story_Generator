@@ -4,6 +4,10 @@ from google import genai
 from gtts import gTTS
 # To convert the speech to audio stream
 from io import BytesIO
+
+from google.genai import types
+from io import BytesIO
+import wave
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -52,15 +56,55 @@ def generate_story(images,style):
     return response.text
 
 # Function: To narrate the story (takes text and returns audio stream)
-def narrate_story(story_text):
+# def narrate_story(story_text):
+#     try:
+#         tts = gTTS(text=story_text, lang='en', slow=False)
+#         # BytesIO will create an temporary audio and then store the audio within the file (this wont be stored on device permanently i.e. it will exist until our app is running)
+#         audio_stream = BytesIO()
+#         # The following line will convert text into audio and write into the audio_stream
+#         tts.write_to_fp(audio_stream)
+#         # This will set the pointer to the start of the stream, we add this because always the pointer will start from the very beginning
+#         audio_stream.seek(0)
+#         return audio_stream
+#     except Exception as e:
+#         return f"Error in generating narration: {e}"
+
+def narrate_story(story_text: str):
+    """
+    Generate narration audio for the story using Gemini TTS.
+    Returns an in-memory WAV file (BytesIO) that Streamlit can play.
+    """
     try:
-        tts = gTTS(text=story_text, lang='en', slow=False)
-        # BytesIO will create an temporary audio and then store the audio within the file (this wont be stored on device permanently i.e. it will exist until our app is running)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-tts",  # TTS-capable model
+            contents=story_text,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            # Pick any prebuilt TTS voice you like; 'Kore' is just an example
+                            voice_name="Kore",
+                        )
+                    )
+                ),
+            ),
+        )
+
+        # PCM audio bytes from the response
+        pcm_data = response.candidates[0].content.parts[0].inline_data.data
+
+        # Wrap PCM in a proper WAV container so Streamlit can play it easily
         audio_stream = BytesIO()
-        # The following line will convert text into audio and write into the audio_stream
-        tts.write_to_fp(audio_stream)
-        # This will set the pointer to the start of the stream, we add this because always the pointer will start from the very beginning
+        with wave.open(audio_stream, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)   # 16-bit audio
+            wf.setframerate(24000)
+            wf.writeframes(pcm_data)
+
         audio_stream.seek(0)
         return audio_stream
+
     except Exception as e:
-        return f"Error in generating narration: {e}"
+        # Log if you want: print(e)
+        return None
